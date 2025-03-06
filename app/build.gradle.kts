@@ -45,8 +45,8 @@ android {
         applicationId = "com.subreax.schedule"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "1.3.0"
+        versionCode = 22
+        versionName = "1.4.0-dev"
 
         buildConfigField("long", "BUILD_TIME", "${System.currentTimeMillis()}L")
         buildConfigField("String", "GIT_HASH", "\"${getLatestGitHash()}\"")
