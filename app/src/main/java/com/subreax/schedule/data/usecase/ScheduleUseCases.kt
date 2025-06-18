@@ -9,7 +9,7 @@ import com.subreax.schedule.data.usecase.schedule.SyncIfNeededAndGetScheduleUseC
 data class ScheduleUseCases(
     val get: GetScheduleUseCase,
     val isExpired: IsScheduleExpiredUseCase,
-    val syncIfNeededAndGet: SyncIfNeededAndGetScheduleUseCase,
+    val syncIfExpiredAndGet: SyncIfNeededAndGetScheduleUseCase,
     val syncAndGet: SyncAndGetScheduleUseCase,
     val clear: ClearScheduleUseCase
 )

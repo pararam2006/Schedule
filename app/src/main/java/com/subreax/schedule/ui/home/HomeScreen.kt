@@ -103,7 +103,7 @@ fun HomeScreen(
     val context = context()
 
     LifecycleStartEffect(selectedBookmark) {
-        homeViewModel.refreshIfNeeded()
+        homeViewModel.getSchedule(selectedBookmark)
         onStopOrDispose { }
     }
 
@@ -124,7 +124,7 @@ fun HomeScreen(
             selectedBookmark = selectedBookmark,
             appUpdate = availableUpdate,
             onBookmarkSelected = { bookmark ->
-                homeViewModel.getSchedule(bookmark)
+                homeViewModel.selectBookmark(bookmark)
             },
             navToBookmarkManager = navToBookmarkManager,
             navToScheduleFinder = navToScheduleFinder,

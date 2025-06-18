@@ -6,4 +6,5 @@ sealed class UiLoadingState {
     data object Loading : UiLoadingState()
     data object Ready : UiLoadingState()
     data class Error(val message: UiText): UiLoadingState()
+    data object Cancelled : UiLoadingState()
 }

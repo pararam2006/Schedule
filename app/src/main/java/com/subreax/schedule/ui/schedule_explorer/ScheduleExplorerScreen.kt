@@ -89,7 +89,7 @@ fun ScheduleExplorerScreen(
     }
 
     LifecycleStartEffect(Unit) {
-        viewModel.refreshIfNeeded()
+        viewModel.getSchedule()
         onStopOrDispose {  }
     }
 

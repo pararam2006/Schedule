@@ -9,8 +9,9 @@ import com.subreax.schedule.data.repository.bookmark.BookmarkRepository
 import com.subreax.schedule.data.repository.settings.SettingsRepository
 import com.subreax.schedule.data.usecase.ScheduleUseCases
 import com.subreax.schedule.data.usecase.SubjectUseCases
-import com.subreax.schedule.ui.SubjectDetailsContainer
 import com.subreax.schedule.ui.ScheduleContainer
+import com.subreax.schedule.ui.SubjectDetailsContainer
+import com.subreax.schedule.ui.SyncType
 import com.subreax.schedule.ui.UiLoadingState
 import com.subreax.schedule.utils.Resource
 import com.subreax.schedule.utils.UiText
@@ -53,7 +54,6 @@ class ScheduleExplorerViewModel(
 
     init {
         viewModelScope.launch {
-            scheduleContainer.update(scheduleId)
             launch {
                 val bookmark = bookmarkRepository.getBookmark(scheduleId).ifFailure { null }
                 _isBookmarked.value = bookmark != null
@@ -67,12 +67,12 @@ class ScheduleExplorerViewModel(
         }
     }
 
-    fun refreshIfNeeded() {
-        scheduleContainer.refreshIfNeeded()
+    fun getSchedule() {
+        scheduleContainer.update(scheduleId)
     }
 
     fun cancelSync() {
-        scheduleContainer.cancelSync()
+        scheduleContainer.update(scheduleId, SyncType.Cancel)
     }
 
     fun openSubjectDetails(subjectId: Long) {
