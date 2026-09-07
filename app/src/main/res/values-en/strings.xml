@@ -103,6 +103,9 @@
     <string name="project_source_code">Project source code</string>
     <string name="hide">Hide</string>
     <string name="download">Download</string>
+    <string name="network_unavailable">No internet connection</string>
+    <string name="network_required">This action requires an internet connection.</string>
+    <string name="open_network_settings">Open settings</string>
     <string name="update_available">Update available</string>
     <string name="whats_new">What\'s new</string>
 

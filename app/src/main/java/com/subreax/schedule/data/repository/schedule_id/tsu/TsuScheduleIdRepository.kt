@@ -1,8 +1,10 @@
 package com.subreax.schedule.data.repository.schedule_id.tsu
 
+import com.subreax.schedule.R
 import com.subreax.schedule.data.model.ScheduleId
 import com.subreax.schedule.data.model.ScheduleType
 import com.subreax.schedule.data.network.TsuRetrofitService
+import com.subreax.schedule.data.network.NetworkStatusProvider
 import com.subreax.schedule.data.network.model.RetrofitDictionaryItem
 import com.subreax.schedule.data.repository.analytics.AnalyticsRepository
 import com.subreax.schedule.data.repository.schedule_id.ScheduleIdRepository
@@ -16,9 +18,14 @@ import java.net.UnknownHostException
 class TsuScheduleIdRepository(
     private val service: TsuRetrofitService,
     private val analyticsRepository: AnalyticsRepository,
+    private val networkStatusProvider: NetworkStatusProvider,
     private val ioDispatcher: CoroutineDispatcher
 ) : ScheduleIdRepository {
     override suspend fun getScheduleId(id: String): Resource<ScheduleId> {
+        if (!networkStatusProvider.requireNetwork()) {
+            return Resource.Failure(UiText.res(R.string.network_unavailable))
+        }
+
         return withContext(ioDispatcher) {
             val datesRes = handleExceptions {
                 service.getDates(id)
@@ -49,6 +56,10 @@ class TsuScheduleIdRepository(
     }
 
     override suspend fun getScheduleIds(startsWith: String): Resource<List<ScheduleId>> {
+        if (!networkStatusProvider.requireNetwork()) {
+            return Resource.Failure(UiText.res(R.string.network_unavailable))
+        }
+
         return withContext(ioDispatcher) {
             handleExceptions {
                 service.getDictionaries(startsWith)
@@ -79,6 +90,9 @@ class TsuScheduleIdRepository(
         return try {
             Resource.Success(block())
         } catch (ex: IOException) {
+            if (!networkStatusProvider.isNetworkAvailable()) {
+                networkStatusProvider.notifyUnavailable()
+            }
             if (ex !is UnknownHostException) {
                 analyticsRepository.recordException(ex)
             }

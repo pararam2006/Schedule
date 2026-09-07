@@ -36,7 +36,7 @@ class HomeDropdownMenuState(isMenuVisible: Boolean = false) {
 fun HomeDropdownMenu(
     state: HomeDropdownMenuState,
     scheduleType: ScheduleType,
-    refreshSchedule: () -> Unit,
+    refreshSchedule: () -> Boolean,
     navToAcademicSchedule: () -> Unit,
     resetSchedule: () -> Unit,
     offset: DpOffset = DpOffset.Zero
@@ -46,8 +46,9 @@ fun HomeDropdownMenu(
         showAcademicScheduleItem = scheduleType == ScheduleType.Student,
         onDismissRequest = { state.hide() },
         refreshSchedule = {
-            state.hide()
-            refreshSchedule()
+            if (refreshSchedule()) {
+                state.hide()
+            }
         },
         navToAcademicSchedule = {
             state.hide()

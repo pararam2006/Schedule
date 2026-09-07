@@ -7,6 +7,7 @@ import com.subreax.schedule.data.local.cache.LocalCache
 import com.subreax.schedule.data.model.AcademicScheduleItem
 import com.subreax.schedule.data.model.transformType
 import com.subreax.schedule.data.network.TsuRetrofitService
+import com.subreax.schedule.data.network.NetworkStatusProvider
 import com.subreax.schedule.data.network.model.NetworkGroup
 import com.subreax.schedule.data.network.model.NetworkSchedule
 import com.subreax.schedule.data.network.model.NetworkScheduleType
@@ -29,9 +30,14 @@ class TsuScheduleNetworkDataSource(
     private val localCache: LocalCache,
     private val service: TsuRetrofitService,
     private val analyticsRepository: AnalyticsRepository,
+    private val networkStatusProvider: NetworkStatusProvider,
     private val ioDispatcher: CoroutineDispatcher
 ) : ScheduleNetworkDataSource {
     override suspend fun getSchedule(id: String, from: Date): Resource<NetworkSchedule> {
+        if (!networkStatusProvider.requireNetwork()) {
+            return Resource.Failure(UiText.res(R.string.network_unavailable))
+        }
+
         return withContext(ioDispatcher) {
             try {
                 val typeRes = getScheduleType(id)
@@ -77,6 +83,7 @@ class TsuScheduleNetworkDataSource(
             } catch (ex: CancellationException) {
                 throw ex
             } catch (ex: IOException) {
+                notifyIfNetworkUnavailable()
                 if (ex !is UnknownHostException) {
                     analyticsRepository.recordException(ex)
                 }
@@ -94,6 +101,10 @@ class TsuScheduleNetworkDataSource(
     }
 
     override suspend fun getAcademicSchedule(id: String): Resource<List<AcademicScheduleItem>> {
+        if (!networkStatusProvider.requireNetwork()) {
+            return Resource.Failure(UiText.res(R.string.network_unavailable))
+        }
+
         return withContext(ioDispatcher) {
             try {
                 val acSchedule = service.getCalendar(id).map { it.toModel() }
@@ -101,6 +112,7 @@ class TsuScheduleNetworkDataSource(
             } catch (ex: CancellationException) {
                 throw ex
             } catch (ex: IOException) {
+                notifyIfNetworkUnavailable()
                 if (ex !is UnknownHostException) {
                     analyticsRepository.recordException(ex)
                 }
@@ -183,6 +195,14 @@ class TsuScheduleNetworkDataSource(
             } else {
                 Resource.Failure(UiText.hardcoded(response.error))
             }
+        } catch (ex: CancellationException) {
+            throw ex
+        } catch (ex: IOException) {
+            notifyIfNetworkUnavailable()
+            if (ex !is UnknownHostException) {
+                analyticsRepository.recordException(ex)
+            }
+            Resource.Failure(UiText.res(R.string.network_unavailable))
         } catch (ex: Exception) {
             Resource.Failure(UiText.res(R.string.failed_to_get_schedule_type_s, scheduleId))
         }
@@ -196,9 +216,14 @@ class TsuScheduleNetworkDataSource(
         return localCache.get("TsuScheduleType/$scheduleId")
     }
 
+    private fun notifyIfNetworkUnavailable() {
+        if (!networkStatusProvider.isNetworkAvailable()) {
+            networkStatusProvider.notifyUnavailable()
+        }
+    }
+
     companion object {
         private const val TAG = "TsuScheduleNetworkDataSource"
         private const val ONE_DAY_MS = 86400000L
     }
 }
-

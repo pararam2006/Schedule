@@ -2,6 +2,8 @@ package com.subreax.schedule.data.repository.update
 
 import android.util.Log
 import com.subreax.schedule.data.model.AppUpdateInfo
+import com.subreax.schedule.data.network.NetworkStatusProvider
+import com.subreax.schedule.R
 import com.subreax.schedule.utils.Resource
 import com.subreax.schedule.utils.UiText
 import kotlinx.coroutines.Dispatchers
@@ -11,7 +13,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.time.Instant
 
 
-class UpdateRepositoryImpl : UpdateRepository {
+class UpdateRepositoryImpl(
+    private val networkStatusProvider: NetworkStatusProvider
+) : UpdateRepository {
     private val githubService by lazy {
         val retrofit = Retrofit.Builder()
             .baseUrl("https://api.github.com/")
@@ -22,6 +26,10 @@ class UpdateRepositoryImpl : UpdateRepository {
     }
 
     override suspend fun getLatestRelease(): Resource<AppUpdateInfo> {
+        if (!networkStatusProvider.isNetworkAvailable()) {
+            return Resource.Failure(UiText.res(R.string.network_unavailable))
+        }
+
         return withContext(Dispatchers.Default) {
             try {
                 val release = githubService.getLatestRelease("subreax", "Schedule")

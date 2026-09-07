@@ -1,5 +1,8 @@
 package com.subreax.schedule
 
+import android.content.Intent
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -7,6 +10,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideIn
 import androidx.compose.animation.slideOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
@@ -30,6 +40,8 @@ import com.subreax.schedule.ui.settings.SettingsScreen
 import com.subreax.schedule.ui.welcome.EnterScheduleIdScreen
 import com.subreax.schedule.ui.welcome.WelcomeScreen
 import com.subreax.schedule.utils.urlEncode
+import com.subreax.schedule.data.network.NetworkStatusProvider
+import com.subreax.schedule.ui.component.dialog.ConfirmDialog
 
 
 private const val TRANSITION_DURATION_MS = 250
@@ -55,6 +67,7 @@ object NavGraph {
 @Composable
 fun MainNavigation(
     startDestination: String,
+    networkStatusProvider: NetworkStatusProvider,
     navController: NavHostController = rememberNavController()
 ) {
     NavHost(
@@ -175,6 +188,37 @@ fun MainNavigation(
         )) {
             AcademicScheduleScreen(navBack = { navController.navigateUp() })
         }
+    }
+
+    NetworkUnavailableDialogHost(networkStatusProvider)
+}
+
+@Composable
+private fun NetworkUnavailableDialogHost(networkStatusProvider: NetworkStatusProvider) {
+    var isVisible by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    LaunchedEffect(networkStatusProvider) {
+        networkStatusProvider.unavailableEvents.collect {
+            isVisible = true
+        }
+    }
+
+    if (isVisible) {
+        ConfirmDialog(
+            title = stringResource(R.string.network_unavailable),
+            content = stringResource(R.string.network_required),
+            confirmButtonText = stringResource(R.string.open_network_settings),
+            onConfirm = {
+                isVisible = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    context.startActivity(Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY))
+                } else {
+                    context.startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+                }
+            },
+            onDismissRequest = { isVisible = false }
+        )
     }
 }
 

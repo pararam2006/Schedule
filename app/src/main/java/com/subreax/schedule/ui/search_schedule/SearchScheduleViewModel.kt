@@ -2,16 +2,19 @@ package com.subreax.schedule.ui.search_schedule
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.subreax.schedule.data.network.NetworkStatusProvider
 import com.subreax.schedule.data.repository.schedule_id.ScheduleIdRepository
 import com.subreax.schedule.ui.SearchScheduleIdUseCase
 import com.subreax.schedule.utils.UiText
 import kotlinx.coroutines.channels.Channel
 
 class SearchScheduleViewModel(
-    scheduleIdRepository: ScheduleIdRepository
+    scheduleIdRepository: ScheduleIdRepository,
+    networkStatusProvider: NetworkStatusProvider
 ) : ViewModel() {
     private val searchScheduleIdUseCase = SearchScheduleIdUseCase(
         scheduleIdRepository,
+        networkStatusProvider,
         { errors.send(it) },
         viewModelScope
     )

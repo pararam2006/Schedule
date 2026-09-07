@@ -1,5 +1,6 @@
 package com.subreax.schedule.ui
 
+import com.subreax.schedule.data.network.NetworkStatusProvider
 import com.subreax.schedule.data.repository.schedule_id.ScheduleIdRepository
 import com.subreax.schedule.utils.Resource
 import com.subreax.schedule.utils.UiText
@@ -14,17 +15,20 @@ import kotlinx.coroutines.flow.stateIn
 
 class SearchScheduleIdUseCase(
     private val scheduleIdRepository: ScheduleIdRepository,
+    private val networkStatusProvider: NetworkStatusProvider,
     private val onError: suspend (UiText) -> Unit,
     scope: CoroutineScope
 ) {
     private val _searchId = MutableStateFlow("")
     val searchId: StateFlow<String> = _searchId
 
+    private val searchRequests = MutableStateFlow("")
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
     @OptIn(FlowPreview::class)
-    val hints = _searchId
+    val hints = searchRequests
         .map { it.trim() }
         .debounce { if (it.isNotEmpty()) 500L else 0L }
         .map { id ->
@@ -48,7 +52,21 @@ class SearchScheduleIdUseCase(
         .stateIn(scope, SharingStarted.WhileSubscribed(2000L), emptyList())
 
     fun search(id: String) {
-        _isLoading.value = true
         _searchId.value = id
+
+        if (id.isBlank()) {
+            _isLoading.value = false
+            searchRequests.value = ""
+            return
+        }
+
+        if (!networkStatusProvider.requireNetwork()) {
+            _isLoading.value = false
+            searchRequests.value = ""
+            return
+        }
+
+        _isLoading.value = true
+        searchRequests.value = id
     }
 }

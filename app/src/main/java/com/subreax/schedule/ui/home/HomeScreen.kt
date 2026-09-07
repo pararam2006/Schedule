@@ -146,9 +146,7 @@ fun HomeScreen(
             onCancelSync = {
                 homeViewModel.cancelSync()
             },
-            refreshSchedule = {
-                homeViewModel.forceSync()
-            },
+            refreshSchedule = homeViewModel::forceSync,
             listState = homeViewModel.scheduleListState,
             coroutineScope = coroutineScope,
             modifier = Modifier
@@ -259,7 +257,7 @@ private fun HomeScreen(
     navToSettings: () -> Unit,
     navToAbout: () -> Unit,
     showAppUpdate: () -> Unit,
-    refreshSchedule: () -> Unit,
+    refreshSchedule: () -> Boolean,
     items: List<ScheduleItem>,
     scheduleAgeMs: Long,
     todayItemIndex: Int,
@@ -336,7 +334,7 @@ private fun HomeScreenContent(
     loadingState: UiLoadingState,
     selectedBookmark: ScheduleBookmark,
     openDrawer: () -> Unit,
-    refreshSchedule: () -> Unit,
+    refreshSchedule: () -> Boolean,
     navToAcademicSchedule: () -> Unit,
     resetSchedule: () -> Unit,
     items: List<ScheduleItem>,
@@ -396,7 +394,7 @@ private fun HomeScreenContent(
 @Composable
 private fun HomeScreenActions(
     selectedBookmark: ScheduleBookmark,
-    refreshSchedule: () -> Unit,
+    refreshSchedule: () -> Boolean,
     navToAcademicSchedule: () -> Unit,
     resetSchedule: () -> Unit,
 ) {

@@ -9,6 +9,7 @@ import com.subreax.schedule.data.model.AppUpdateInfo
 import com.subreax.schedule.data.model.ScheduleBookmark
 import com.subreax.schedule.data.model.ScheduleId
 import com.subreax.schedule.data.model.ScheduleType
+import com.subreax.schedule.data.network.NetworkStatusProvider
 import com.subreax.schedule.data.repository.bookmark.BookmarkRepository
 import com.subreax.schedule.data.repository.settings.SettingsRepository
 import com.subreax.schedule.data.usecase.ScheduleUseCases
@@ -35,7 +36,8 @@ class HomeViewModel(
     settingsRepository: SettingsRepository,
     private val subjectUseCases: SubjectUseCases,
     bookmarkRepository: BookmarkRepository,
-    private val updateUseCases: UpdateUseCases
+    private val updateUseCases: UpdateUseCases,
+    private val networkStatusProvider: NetworkStatusProvider
 ) : ViewModel() {
     private val scheduleContainer = ScheduleContainer(
         scheduleUseCases,
@@ -128,8 +130,13 @@ class HomeViewModel(
         scheduleContainer.update(bookmark.scheduleId.value)
     }
 
-    fun forceSync() {
+    fun forceSync(): Boolean {
+        if (!networkStatusProvider.requireNetwork()) {
+            return false
+        }
+
         scheduleContainer.update(selectedScheduleId.value, SyncType.Force)
+        return true
     }
 
     fun cancelSync() {

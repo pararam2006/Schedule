@@ -10,6 +10,8 @@ import com.subreax.schedule.data.local.teacher_name.TeacherNameLocalDataSource
 import com.subreax.schedule.data.local.teacher_name.impl.TeacherNameLocalDataSourceImpl
 import com.subreax.schedule.data.network.schedule.ScheduleNetworkDataSource
 import com.subreax.schedule.data.network.schedule.tsu.TsuScheduleNetworkDataSource
+import com.subreax.schedule.data.network.AndroidNetworkStatusProvider
+import com.subreax.schedule.data.network.NetworkStatusProvider
 import com.subreax.schedule.data.repository.ac_schedule.AcademicScheduleRepository
 import com.subreax.schedule.data.repository.ac_schedule.impl.AcademicScheduleRepositoryImpl
 import com.subreax.schedule.data.repository.analytics.AnalyticsRepository
@@ -33,8 +35,12 @@ import org.koin.dsl.module
 import java.io.File
 
 val appModule = module {
+    single<NetworkStatusProvider> {
+        AndroidNetworkStatusProvider(androidContext())
+    }
+
     single<ScheduleNetworkDataSource> {
-        TsuScheduleNetworkDataSource(get(), get(), get(), getIoDispatcher())
+        TsuScheduleNetworkDataSource(get(), get(), get(), get(), getIoDispatcher())
     }
 
     single<LocalCache> {
@@ -66,11 +72,7 @@ val appModule = module {
     }
 
     single<ScheduleIdRepository> {
-        TsuScheduleIdRepository(get(), get(), getIoDispatcher())
-    }
-
-    single<ScheduleNetworkDataSource> {
-        TsuScheduleNetworkDataSource(get(), get(), get(), getIoDispatcher())
+        TsuScheduleIdRepository(get(), get(), get(), getIoDispatcher())
     }
 
     single<SubjectNameLocalDataSource> {
@@ -102,7 +104,6 @@ val appModule = module {
     }
 
     single<UpdateRepository> {
-        UpdateRepositoryImpl()
+        UpdateRepositoryImpl(get())
     }
 }
-

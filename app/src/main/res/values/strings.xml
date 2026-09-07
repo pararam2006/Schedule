@@ -108,6 +108,9 @@
     <string name="project_source_code">Исходный код проекта</string>
     <string name="hide">Скрыть</string>
     <string name="download">Скачать</string>
+    <string name="network_unavailable">Нет подключения к интернету</string>
+    <string name="network_required">Для этого действия необходимо подключение к интернету.</string>
+    <string name="open_network_settings">Открыть настройки</string>
     <string name="update_available">Доступно обновление</string>
     <string name="whats_new">Что нового</string>
 

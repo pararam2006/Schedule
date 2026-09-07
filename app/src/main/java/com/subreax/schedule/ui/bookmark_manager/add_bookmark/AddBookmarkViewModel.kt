@@ -2,6 +2,7 @@ package com.subreax.schedule.ui.bookmark_manager.add_bookmark
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.subreax.schedule.data.network.NetworkStatusProvider
 import com.subreax.schedule.data.repository.bookmark.BookmarkRepository
 import com.subreax.schedule.data.repository.schedule_id.ScheduleIdRepository
 import com.subreax.schedule.ui.SearchScheduleIdUseCase
@@ -16,10 +17,12 @@ import kotlinx.coroutines.launch
 
 class AddBookmarkViewModel(
     scheduleIdRepository: ScheduleIdRepository,
-    private val bookmarkRepository: BookmarkRepository
+    private val bookmarkRepository: BookmarkRepository,
+    private val networkStatusProvider: NetworkStatusProvider
 ) : ViewModel() {
     private val searchScheduleIdUseCase = SearchScheduleIdUseCase(
         scheduleIdRepository,
+        networkStatusProvider,
         { errors.send(it) },
         viewModelScope
     )
@@ -41,6 +44,10 @@ class AddBookmarkViewModel(
     }
 
     fun addBookmark(scheduleId: String) {
+        if (!networkStatusProvider.requireNetwork()) {
+            return
+        }
+
         viewModelScope.launch {
             withLoading {
                 when (val res = bookmarkRepository.addBookmark(scheduleId)) {
