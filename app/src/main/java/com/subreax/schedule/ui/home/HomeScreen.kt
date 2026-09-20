@@ -103,7 +103,7 @@ fun HomeScreen(
     val context = context()
 
     LifecycleStartEffect(selectedBookmark) {
-        homeViewModel.refreshIfNeeded()
+        homeViewModel.getSchedule(selectedBookmark)
         onStopOrDispose { }
     }
 
@@ -124,7 +124,7 @@ fun HomeScreen(
             selectedBookmark = selectedBookmark,
             appUpdate = availableUpdate,
             onBookmarkSelected = { bookmark ->
-                homeViewModel.getSchedule(bookmark)
+                homeViewModel.selectBookmark(bookmark)
             },
             navToBookmarkManager = navToBookmarkManager,
             navToScheduleFinder = navToScheduleFinder,
@@ -240,7 +240,10 @@ fun HomeScreen(
     LaunchedEffect(context) {
         while (isActive) {
             val errorMsg = homeViewModel.errors.receive()
-            snackbarHostState.showSnackbar(errorMsg.toString(context))
+            snackbarHostState.showSnackbar(
+                message = errorMsg.toString(context),
+                actionLabel = "OK"
+            )
         }
     }
 }

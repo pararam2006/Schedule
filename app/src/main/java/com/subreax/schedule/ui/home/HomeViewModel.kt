@@ -37,7 +37,12 @@ class HomeViewModel(
     bookmarkRepository: BookmarkRepository,
     private val updateUseCases: UpdateUseCases
 ) : ViewModel() {
-    private val scheduleContainer = ScheduleContainer(scheduleUseCases, settingsRepository, appContext, viewModelScope)
+    private val scheduleContainer = ScheduleContainer(
+        scheduleUseCases,
+        settingsRepository,
+        appContext,
+        viewModelScope
+    )
     private val subjectDetailsContainer =
         SubjectDetailsContainer(subjectUseCases, bookmarkRepository)
 
@@ -73,7 +78,7 @@ class HomeViewModel(
     init {
         viewModelScope.launch {
             val bookmarks = bookmarks.first { list -> list.isNotEmpty() }
-            getSchedule(bookmarks.first())
+            _selectedBookmark.value = bookmarks.first()
         }
 
         viewModelScope.launch {
@@ -115,19 +120,12 @@ class HomeViewModel(
         }
     }
 
-    fun getSchedule(bookmark: ScheduleBookmark) {
-        if (_selectedBookmark.value != bookmark) {
-            viewModelScope.launch {
-                _selectedBookmark.value = bookmark
-                scheduleContainer.update(bookmark.scheduleId.value)
-            }
-        }
+    fun selectBookmark(bookmark: ScheduleBookmark) {
+        _selectedBookmark.value = bookmark
     }
 
-    fun refreshIfNeeded() {
-        if (selectedScheduleId.type != ScheduleType.Unknown) {
-            scheduleContainer.refreshIfNeeded()
-        }
+    fun getSchedule(bookmark: ScheduleBookmark) {
+        scheduleContainer.update(bookmark.scheduleId.value)
     }
 
     fun forceSync() {
@@ -135,7 +133,7 @@ class HomeViewModel(
     }
 
     fun cancelSync() {
-        scheduleContainer.cancelSync()
+        scheduleContainer.update(selectedScheduleId.value, SyncType.Cancel)
     }
 
     fun resetSchedule() {
@@ -169,7 +167,7 @@ class HomeViewModel(
         viewModelScope.launch {
             subjectUseCases.setNameAlias(name, newAlias).ifFailure { errors.send(message) }
             cancelRenaming()
-            scheduleContainer.update(selectedScheduleId.value, SyncType.None).join()
+            scheduleContainer.update(selectedScheduleId.value, SyncType.None)
             subjectDetailsContainer.subject.value?.let {
                 openSubjectDetails(it.subjectId)
             }

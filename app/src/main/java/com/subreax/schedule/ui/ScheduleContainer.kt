@@ -1,6 +1,7 @@
 package com.subreax.schedule.ui
 
 import android.content.Context
+import android.util.Log
 import com.subreax.schedule.data.model.Schedule
 import com.subreax.schedule.data.model.ScheduleId
 import com.subreax.schedule.data.model.ScheduleType
@@ -9,28 +10,25 @@ import com.subreax.schedule.data.repository.settings.SettingsRepository
 import com.subreax.schedule.data.usecase.ScheduleUseCases
 import com.subreax.schedule.ui.component.schedule.item.ScheduleItem
 import com.subreax.schedule.ui.component.schedule.item.toScheduleItems
-import com.subreax.schedule.utils.DateTimeUtils
 import com.subreax.schedule.utils.Resource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Date
 
 enum class SyncType {
-    None, IfNeeded, Force
+    None, IfExpired, Force, Cancel
 }
 
 private data class ScheduleSettings(
-    val alwaysShowSubjectBeginTime: Boolean,
-    val hideLectures: Boolean
+    val alwaysShowSubjectBeginTime: Boolean
 )
 
 class ScheduleContainer(
@@ -47,86 +45,106 @@ class ScheduleContainer(
 
     private var currentScheduleId = ""
 
-    private var invokeJob: Job = Job()
+    private val updateRequests = Channel<Pair<String, SyncType>>(capacity = 8)
 
-    private val isScheduleReady: Boolean
-        get() = invokeJob.isCompleted && _uiLoadingState.value == UiLoadingState.Ready
-
-    private val shouldBeRefreshed: Boolean
-        get() = isScheduleReady && areDaysDiffer(_schedule.value.syncTime, Date())
-
-    private val scheduleSettings: StateFlow<ScheduleSettings>
-        get() = settingsRepository.settings
-            .map { it.toScheduleSettings() }
-            .stateIn(coroutineScope, SharingStarted.Eagerly, Settings().toScheduleSettings())
+    private var scheduleSettings = settingsRepository.settings.value.toScheduleSettings()
 
     init {
         coroutineScope.launch {
-            scheduleSettings.collect {
-                if (isScheduleReady && currentScheduleId.isNotEmpty()) {
-                    update(currentScheduleId, SyncType.None)
+            var isFirstUpdate = true
+            var activeSyncType = SyncType.None
+
+            var updateJob = cancelledJob()
+            while (isActive) {
+                var (id, syncType) = updateRequests.receive()
+                Log.d("ScheduleContainer", "request ($id, $syncType)")
+
+                if (isFirstUpdate) {
+                    subscribeToDataChanges()
+                    isFirstUpdate = false
+                }
+
+                if (currentScheduleId == id && syncType == SyncType.IfExpired && isPrevLoadingFailed()) {
+                    syncType = SyncType.Cancel
+                }
+
+                val syncType1 = maxOf(syncType, activeSyncType)
+                updateJob.cancel()
+                updateJob = coroutineScope.launch {
+                    activeSyncType = syncType1
+                    updateDirect(id, syncType1, scheduleSettings)
+                    if (isActive) {
+                        activeSyncType = SyncType.None
+                    }
                 }
             }
         }
     }
 
-    fun update(id: String, syncType: SyncType = SyncType.IfNeeded): Job {
-        currentScheduleId = id
-
-        invokeJob.cancel()
-        invokeJob = coroutineScope.launch {
-            _uiLoadingState.value = UiLoadingState.Loading
-
-            val res = when (syncType) {
-                SyncType.None -> scheduleUseCases.get(id)
-                SyncType.IfNeeded -> scheduleUseCases.syncIfNeededAndGet(id)
-                SyncType.Force -> scheduleUseCases.syncAndGet(id)
-            }
-
-            val uiSchedule = res.toUiSchedule(scheduleSettings.value.alwaysShowSubjectBeginTime)
-            ensureActive()
-
-            _schedule.value = uiSchedule
-            if (res is Resource.Success) {
-                _uiLoadingState.value = UiLoadingState.Ready
-            } else if (res is Resource.Failure) {
-                _uiLoadingState.value = UiLoadingState.Error(res.message)
-            }
-        }
-        return invokeJob
-    }
-
-    fun refreshIfNeeded() {
-        coroutineScope.launch {
-            if (invokeJob.isActive || !isScheduleReady) {
-                return@launch
-            }
-
-            invokeJob.join()
-
-            if (scheduleUseCases.isExpired(currentScheduleId)) {
-                update(currentScheduleId, SyncType.Force)
-            } else if (shouldBeRefreshed) {
-                update(currentScheduleId, SyncType.None)
-            }
-        }
-    }
-
-    fun cancelSync() {
-        if (invokeJob.isActive) {
-            coroutineScope.launch {
-                invokeJob.cancelAndJoin()
-                update(currentScheduleId, SyncType.None)
-            }
-        }
+    fun update(id: String, syncType: SyncType = SyncType.IfExpired) {
+        updateRequests.trySend(Pair(id, syncType))
     }
 
     fun resetSchedule() {
         coroutineScope.launch {
-            cancelSync()
             scheduleUseCases.clear(currentScheduleId)
             update(currentScheduleId, SyncType.Force)
         }
+    }
+
+    private fun subscribeToDataChanges() {
+        coroutineScope.launch {
+            settingsRepository.settings.drop(1).collect {
+                if (currentScheduleId.isEmpty()) {
+                    return@collect
+                }
+
+                val newSettings = it.toScheduleSettings()
+                if (scheduleSettings != newSettings) {
+                    scheduleSettings = newSettings
+                    update(currentScheduleId, SyncType.IfExpired)
+                }
+            }
+        }
+    }
+
+    private suspend fun updateDirect(
+        id: String,
+        syncType: SyncType,
+        settings: ScheduleSettings
+    ) = coroutineScope {
+        currentScheduleId = id
+        _uiLoadingState.value = UiLoadingState.Loading
+
+        Log.d("ScheduleContainer", "* load ($id, $syncType)")
+        val res = when (syncType) {
+            SyncType.None,
+            SyncType.Cancel -> scheduleUseCases.get(id)
+            SyncType.IfExpired -> scheduleUseCases.syncIfExpiredAndGet(id)
+            SyncType.Force -> scheduleUseCases.syncAndGet(id)
+        }
+
+        ensureActive()
+
+        _schedule.value = res.toUiSchedule(settings.alwaysShowSubjectBeginTime)
+
+        ensureActive()
+
+        _uiLoadingState.value = when {
+            res is Resource.Failure -> {
+                UiLoadingState.Error(res.message)
+            }
+            syncType == SyncType.Cancel -> {
+                UiLoadingState.Cancelled
+            }
+            else -> {
+                UiLoadingState.Ready
+            }
+        }
+    }
+
+    private fun isPrevLoadingFailed(): Boolean {
+        return _uiLoadingState.value.let { it is UiLoadingState.Error || it is UiLoadingState.Cancelled }
     }
 
     private fun Resource<Schedule>.toUiSchedule(alwaysShowSubjectBeginTime: Boolean): UiSchedule {
@@ -151,10 +169,12 @@ class ScheduleContainer(
         )
     }
 
-    private fun areDaysDiffer(t0: Date, t1: Date): Boolean {
-        val date0 = DateTimeUtils.keepDateAndRemoveTime(t0.time)
-        val date1 = DateTimeUtils.keepDateAndRemoveTime(t1.time)
-        return date0 != date1
+    private fun maxOf(st1: SyncType, st2: SyncType): SyncType {
+        return SyncType.entries[maxOf(st1.ordinal, st2.ordinal)]
+    }
+
+    companion object {
+        private fun cancelledJob(): Job = Job().also { it.cancel() }
     }
 }
 
@@ -170,5 +190,5 @@ private fun nullScheduleId(networkId: String = "") = ScheduleId(
 )
 
 private fun Settings.toScheduleSettings(): ScheduleSettings {
-    return ScheduleSettings(alwaysShowSubjectBeginTime, hideLectures)
+    return ScheduleSettings(alwaysShowSubjectBeginTime)
 }

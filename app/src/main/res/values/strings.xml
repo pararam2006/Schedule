@@ -77,7 +77,7 @@
     <string name="finished">завершено</string>
     <string name="no_schedule">Расписание отсутствует</string>
     <string name="there_is_no_schedule_on_server">На сайте нет расписания</string>
-    <string name="failed_to_fetch_schedule">Не удалось загрузить расписание с сайта</string>
+    <string name="failed_to_fetch_schedule">Ошибка загрузки расписания сайта</string>
     <string name="failed_to_process_schedule_s">Не удалось обработать загруженное расписание с сайта: %s</string>
     <string name="s_time_left">Осталось %s</string>
     <string name="s_time_until_start">До начала %s</string>
