@@ -240,7 +240,10 @@ fun HomeScreen(
     LaunchedEffect(context) {
         while (isActive) {
             val errorMsg = homeViewModel.errors.receive()
-            snackbarHostState.showSnackbar(errorMsg.toString(context))
+            snackbarHostState.showSnackbar(
+                message = errorMsg.toString(context),
+                actionLabel = "OK"
+            )
         }
     }
 }
